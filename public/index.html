@@ -8,138 +8,101 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        .huge-header {
-            font-size: 100pt;
-            line-height: 1.2;
+        .drop-zone {
+            border: 4px dashed #ccc;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
         }
 
-        @media (max-width: 768px) {
-            .huge-header {
-                font-size: 50pt;
-            }
+        .drop-zone.dragover {
+            background-color: #f0f0f0;
         }
     </style>
 </head>
 
-<body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-        <h1 class="huge-header text-center font-bold text-gray-800 mb-8">Speech to Text</h1>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+    <h1 class="text-9xl font-bold mb-8 text-center">Speech to Text</h1>
 
-        <div class="bg-white shadow-md rounded-lg p-6 mb-6">
-            <div class="mb-4">
-                <label for="file-upload" class="block text-gray-700 font-bold mb-2">Upload Audio File</label>
-                <input type="file" id="file-upload" accept="audio/*" class="w-full p-2 border rounded">
-            </div>
-            <div class="mb-4">
-                <button id="record-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">
-                    <i class="fas fa-microphone mr-2"></i>Record Audio
-                </button>
-                <span id="recording-status" class="ml-2 text-gray-600"></span>
-            </div>
-            <button id="transcribe-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
-                <i class="fas fa-language mr-2"></i>Transcribe
-            </button>
-        </div>
+    <div id="dropZone" class="drop-zone w-full max-w-3xl mb-8">
+        <p class="text-2xl mb-4">Drop audio files here or click to select</p>
+        <input type="file" id="fileInput" class="hidden" multiple accept="audio/*">
+        <button id="selectButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+            Select Files
+        </button>
+    </div>
 
-        <div id="result" class="bg-white shadow-md rounded-lg p-6 mb-6 hidden">
-            <h2 class="text-2xl font-bold mb-4">Transcription Result</h2>
-            <p id="transcript" class="text-gray-700"></p>
-        </div>
+    <div id="results" class="w-full max-w-3xl"></div>
 
-        <div id="loading" class="text-center hidden">
-            <i class="fas fa-spinner fa-spin fa-3x text-blue-500"></i>
-            <p class="mt-2 text-gray-600">Transcribing...</p>
-        </div>
-
-        <div class="text-center mt-6">
-            <button id="share-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">
-                <i class="fab fa-twitter mr-2"></i>Share on Twitter
-            </button>
-        </div>
-
-        <div class="text-center mt-6">
-            <a href="#" id="settings-link" class="text-blue-500 hover:text-blue-600">
-                <i class="fas fa-cog mr-2"></i>Settings
-            </a>
+    <div id="loadingIndicator"
+        class="hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center">
+        <div class="text-white text-4xl">
+            <i class="fas fa-spinner fa-spin mr-2"></i>
+            Processing...
         </div>
     </div>
 
+    <button id="shareButton" class="mt-8 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+        <i class="fab fa-twitter mr-2"></i>
+        Share on Twitter
+    </button>
+
     <script>
-        const fileUpload = document.getElementById('file-upload');
-        const recordButton = document.getElementById('record-button');
-        const transcribeButton = document.getElementById('transcribe-button');
-        const resultDiv = document.getElementById('result');
-        const transcriptP = document.getElementById('transcript');
-        const loadingDiv = document.getElementById('loading');
-        const shareButton = document.getElementById('share-button');
-        const settingsLink = document.getElementById('settings-link');
-        const recordingStatus = document.getElementById('recording-status');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const selectButton = document.getElementById('selectButton');
+        const results = document.getElementById('results');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const shareButton = document.getElementById('shareButton');
 
-        let mediaRecorder;
-        let audioChunks = [];
-
-        // Load settings from localStorage
-        const apiManagementUrl = localStorage.getItem('apiManagementUrl') || '';
-
-        // Update settings link
-        if (apiManagementUrl) {
-            settingsLink.href = apiManagementUrl;
-            settingsLink.target = '_blank';
-        } else {
-            settingsLink.addEventListener('click', openSettings);
-        }
-
-        function openSettings(e) {
+        dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
-            const url = prompt('Enter API Management URL:', apiManagementUrl);
-            if (url !== null) {
-                localStorage.setItem('apiManagementUrl', url);
-                location.reload();
-            }
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        selectButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        shareButton.addEventListener('click', () => {
+            const text = "Check out this awesome Speech to Text converter!";
+            const url = encodeURIComponent(window.location.href);
+            window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+        });
+
+        function handleFiles(files) {
+            loadingIndicator.classList.remove('hidden');
+            results.innerHTML = '';
+
+            const promises = Array.from(files).map(file => translateAudio(file));
+
+            Promise.all(promises)
+                .then(() => {
+                    loadingIndicator.classList.add('hidden');
+                })
+                .catch(error => {
+                    console.error('Error processing files:', error);
+                    loadingIndicator.classList.add('hidden');
+                    results.innerHTML += `<p class="text-red-500">Error processing files: ${error.message}</p>`;
+                });
         }
 
-        recordButton.addEventListener('click', toggleRecording);
-        transcribeButton.addEventListener('click', transcribeAudio);
-        shareButton.addEventListener('click', shareOnTwitter);
-
-        function toggleRecording() {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-                recordButton.textContent = 'Record Audio';
-                recordButton.classList.remove('bg-red-600');
-                recordButton.classList.add('bg-red-500');
-                recordingStatus.textContent = '';
-            } else {
-                navigator.mediaDevices.getUserMedia({ audio: true })
-                    .then(stream => {
-                        mediaRecorder = new MediaRecorder(stream);
-                        mediaRecorder.ondataavailable = event => {
-                            audioChunks.push(event.data);
-                        };
-                        mediaRecorder.onstop = () => {
-                            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                            fileUpload.files = new FileList([new File([audioBlob], 'recorded_audio.wav', { type: 'audio/wav' })]);
-                            audioChunks = [];
-                        };
-                        mediaRecorder.start();
-                        recordButton.innerHTML = '<i class="fas fa-stop mr-2"></i>Stop Recording';
-                        recordButton.classList.remove('bg-red-500');
-                        recordButton.classList.add('bg-red-600');
-                        recordingStatus.textContent = 'Recording...';
-                    });
-            }
-        }
-
-        async function transcribeAudio() {
-            const file = fileUpload.files[0];
-            if (!file) {
-                alert('Please upload an audio file or record audio first.');
-                return;
-            }
-
-            loadingDiv.classList.remove('hidden');
-            resultDiv.classList.add('hidden');
-
+        async function translateAudio(file) {
             const formData = new FormData();
             formData.append('file', file);
 
@@ -154,21 +117,40 @@
                 }
 
                 const data = await response.json();
-                transcriptP.textContent = data.transcript;
-                resultDiv.classList.remove('hidden');
+                results.innerHTML += `
+                    <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+                        <h2 class="text-xl font-bold mb-2">${file.name}</h2>
+                        <p>${data.transcript}</p>
+                    </div>
+                `;
             } catch (error) {
                 console.error('Error:', error);
-                alert('An error occurred while transcribing the audio. Please try again.');
-            } finally {
-                loadingDiv.classList.add('hidden');
-            }//
+                results.innerHTML += `
+                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+                        <strong class="font-bold">Error processing ${file.name}:</strong>
+                        <span class="block sm:inline">${error.message}</span>
+                    </div>
+                `;
+            }
         }
 
-        function shareOnTwitter() {
-            const text = encodeURIComponent('Check out this amazing Speech to Text tool!');
-            const url = encodeURIComponent(window.location.href);
-            window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
-        }
+        // Load settings from localStorage
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.body.classList.add(savedTheme);
+            }
+        });
+
+        // Add a simple settings toggle for dark/light mode
+        const themeToggle = document.createElement('button');
+        themeToggle.innerHTML = '<i class="fas fa-adjust"></i>';
+        themeToggle.className = 'fixed top-4 right-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded';
+        themeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+            localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+        });
+        document.body.appendChild(themeToggle);
     </script>
 </body>
 
