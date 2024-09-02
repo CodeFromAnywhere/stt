@@ -107,7 +107,7 @@
             formData.append('file', file);
 
             try {
-                const response = await fetch('https://search.actionschema.com/audio/translations', {
+                const response = await fetch('/audio/translations', {
                     method: 'POST',
                     body: formData
                 });
